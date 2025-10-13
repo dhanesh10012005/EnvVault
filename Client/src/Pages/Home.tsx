@@ -63,7 +63,7 @@ const updateEnv = (index: number, field: 'key' | 'value', value: string) => {
         {
             projects.map((proj)=>
             (
-                <div className='p-4 m-4 overflow-y-auto w-72 lg:w-96 shadow-lg shadow-gray-400 bg-blue-400 rounded-2xl hover:h-42 hover:w-[25rem] transition-all duration-300 ease-in-out cursor-pointer p-10' key={proj.id}>
+                <div className='p-4 m-4 overflow-y-auto w-72 lg:w-96 shadow-lg shadow-gray-400 bg-blue-400 rounded-2xl hover:scale-110 transition-all duration-300 ease-in-out cursor-pointer p-10' key={proj.id}>
                     <h1 className='text-white mb-2 text-xl sm:text-2xl'>{proj.name}</h1>
                     <h2><span className='font-bold'>Created At:</span>{proj.createdAt}</h2>
                     <div className='flex justify-center items-center text-center mt-3'>
