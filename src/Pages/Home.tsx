@@ -16,7 +16,6 @@ const Home:React.FC = () => {
     setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   };
 
-
   const [showModal,setShowModal]=useState(false)
   const [projName,setProjName]=useState('')
   const [envs,setEnvs]=useState<{key:string,value:string}[]>([{key:'',value:''}])
