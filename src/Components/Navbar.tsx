@@ -1,5 +1,5 @@
 import React from 'react'
-import usericon from '..//assets/usrIcon.webp'
+import usericon from '../assets/usrIcon.webp'
 const Navbar:React.FC = () => {
   return (
     <div className='w-full h-15  p-2 flex justify-between shadow-lg items-center fixed top-0 left-0 z-50 bg-white'>

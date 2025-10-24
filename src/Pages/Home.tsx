@@ -11,7 +11,7 @@ interface Project{
 
 const Home:React.FC = () => {
 
-  const { projects, setProjects } = useContext(AppContext) as {
+  const { projects, setProjects,token,setToken } = useContext(AppContext) as {
     projects: Project[];
     setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   };
@@ -57,6 +57,7 @@ const updateEnv = (index: number, field: 'key' | 'value', value: string) => {
  
 
   return (
+    token && ():
     <div className='md:p-10 relative'> 
     <div className='w-full h-full flex flex-wrap justify-center sm:justify-start'>
         {

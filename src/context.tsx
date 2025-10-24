@@ -26,7 +26,8 @@ interface AppProviderProps {
 
 
 export const AppProvider:React.FC<AppProviderProps> = ({ children }) => {
-
+    
+    const [token,setToken]=useState<boolean>(true)
     const [projects,setProjects]=useState<Project[]>([
       {
     id: "proj-001",
@@ -116,7 +117,7 @@ export const AppProvider:React.FC<AppProviderProps> = ({ children }) => {
 },[projects])
 
     return (
-        <AppContext.Provider value={{projects,setProjects}}>
+        <AppContext.Provider value={{projects,setProjects,token,setToken}}>
           {children}
         </AppContext.Provider>
     )
