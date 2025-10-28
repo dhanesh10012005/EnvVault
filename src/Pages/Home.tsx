@@ -1,6 +1,9 @@
 import React, { useContext, useState } from 'react'
 import { AppContext } from '../context'
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 interface Project {
     id: number;
@@ -11,9 +14,10 @@ interface Project {
 
 const Home: React.FC = () => {
 
-    const { projects, setProjects } = useContext(AppContext) as {
+    const { projects, setProjects ,createProject} = useContext(AppContext) as {
         projects: Project[];
         setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+         createProject: (name: string, secrets: Record<string, string>) => Promise<any>;
     };
 
     const [showModal, setShowModal] = useState(false)
@@ -25,25 +29,22 @@ const Home: React.FC = () => {
     }
 
 
-    const saveProject = () => {
-        if (!projName) return alert("Project Name is required")
-
-        const envObj: { [key: string]: string } = {}
-        envs.forEach(env => {
-            if (env.key === '' || env.value === '') return alert("All the key and Value pairs were not filled!!")
-            if (env.key && env.value) envObj[env.key] = env.value;
-        });
-
-        const newProject: Project = {
-            id: Date.now(),
-            name: projName,
-            createdAt: new Date().toISOString().split('T')[0],
-            env: envObj
+    const saveProject = async() => {
+         const filteredEnvs=envs.filter((env)=>env.key.trim() && env.value.trim())
+        try{   
+        const newProject=await createProject(projName,filteredEnvs)
+        if(newProject)
+        {   
+            setProjects([...projects,newProject])
+            toast.success("New Project created")
         }
-        setProjects([...projects, newProject])
         setShowModal(false)
         setProjName('')
         setEnvs([{ key: '', value: '' }])
+    }
+     catch (error) {
+  toast.error(error.response?.data?.message || "Something went wrong")
+}
     }
 
     const updateEnv = (index: number, field: 'key' | 'value', value: string) => {
@@ -63,7 +64,7 @@ const Home: React.FC = () => {
                     (
                         <div className='p-4 m-4 overflow-y-auto w-72 lg:w-96 shadow-lg shadow-gray-400 bg-blue-400 rounded-2xl hover:scale-110 transition-all duration-300 ease-in-out cursor-pointer p-10' key={proj.id}>
                             <h1 className='text-white mb-2 text-xl sm:text-2xl'>{proj.name}</h1>
-                            <h2><span className='font-bold'>Created At:</span>{proj.createdAt}</h2>
+                            <h2><span className='font-bold'>Created At:</span>{proj.createdAt.split("T")[0]}</h2>
                             <div className='flex justify-center items-center text-center mt-3'>
                                 <button
                                     onClick={() => navigate('/viewproj', { state: { id: proj.id } })}

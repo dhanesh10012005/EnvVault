@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("token", token);
 
       toast.success("Login successful");
-      navigate("/");
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
     }
@@ -62,7 +62,6 @@ export const AuthProvider = ({ children }) => {
     toast.error("Please enter a valid email address");
     return;
   }
-
     try {
       const res = await API.post("/auth/signup", { name, email, password });
       const { user, token } = res.data.data;
@@ -70,7 +69,7 @@ export const AuthProvider = ({ children }) => {
       setToken(token);
       localStorage.setItem("token", token);
       toast.success("Signup successful");
-      navigate("/");
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed");
     }
@@ -87,8 +86,6 @@ const loginWithGoogle = async (idToken) => {
     setCurrentUser(user);
     setToken(token);
     localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
-
     toast.success("Google login successful");
 
   } catch (error) {
@@ -102,6 +99,7 @@ const loginWithGoogle = async (idToken) => {
     setCurrentUser(null);
     setToken(null);
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     toast.success("Logged out");
   };
 
