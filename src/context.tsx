@@ -1,7 +1,8 @@
 import axios from "axios";
-import React,{createContext,useState, ReactNode, useEffect} from "react"; 
+import React,{createContext,useState, ReactNode, useEffect, useContext} from "react"; 
 import API from "./apiClient";
 import toast from "react-hot-toast";
+import { AuthContext } from "./AuthContext";
 type ENV={
     [key:string]:string
 }
@@ -17,9 +18,7 @@ export interface Project{
 interface AppcContextType{
     projects:Project[],
     setProjects:React.Dispatch<React.SetStateAction<Project[]>>,
-    token:boolean,
-    setToken:React.Dispatch<React.SetStateAction<boolean>>, 
-    createProject: (name: string, secrets: ENV) => Promise<boolean>;
+    createProject: (name: string, secret: ENV) => Promise<any>;
 }
 
 export const AppContext=createContext<AppcContextType | null>(null)
@@ -32,44 +31,44 @@ interface AppProviderProps {
 
 export const AppProvider:React.FC<AppProviderProps> = ({ children }) => {
     
-    const [token,setToken]=useState<boolean>(false)
-    const [projects,setProjects]=useState<Project[]>([ ]);
+    const [projects,setProjects]=useState<Project[]>([]);
+    const {token}=useContext(AuthContext)
 
-    const createProject= async(name:string,secrets:ENV):Promise<any>=>{
-      try{
-       const res=await API.post('/projects/createproject',{name,secrets});
+   const createProject = async (name: string, secret: { key: string; value: string }[]): Promise<any> => {
+  try {
+    const res = await API.post('/projects/createproject', { name, secret });
+    const { project } = res.data;
 
-       const {project}=res.data;
-
-       if(project) 
-       {
-        return project
-       }
-       else 
-       {
-        toast.error("failed to create project")
-        return null
-       }
-      }
-       catch(error)
-       {
-    toast.error(error.response?.data?.message || "Something went wrong");
-    return null
-       }
-
+    if (project) {
+      return project;
+    } else {
+      toast.error("Failed to create project");
+      return null;
     }
+  } catch (error: any) {
+    const message = error.response?.data?.message;
+    throw new Error(message); // <--- Important: rethrow to stop execution in saveProject
+  }
+};
 
 
-   useEffect(() => {
-  axios.get("http://localhost:3000/projects/", {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  })
-  .then((res) => setProjects(res.data.project))
-  .catch((err) => console.error(err));
-}, []);
+
+
+    useEffect(() => {
+  API.get("/projects/")
+    .then((res) => {
+      setProjects(res.data.project);
+      console.log(res.data.project);
+    })
+    .catch((err) => {
+      console.error(err);
+      setProjects([]);
+    });
+}, [token]);
+
 
     return (
-        <AppContext.Provider value={{projects,setProjects,token,setToken,createProject}}>
+        <AppContext.Provider value={{projects,setProjects,createProject}}>
           {children}
         </AppContext.Provider>
     )

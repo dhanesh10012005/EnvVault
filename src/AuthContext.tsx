@@ -99,7 +99,6 @@ const loginWithGoogle = async (idToken) => {
     setCurrentUser(null);
     setToken(null);
     localStorage.removeItem("token");
-    localStorage.removeItem("user");
     toast.success("Logged out");
   };
 
