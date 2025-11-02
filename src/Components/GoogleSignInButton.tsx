@@ -32,8 +32,7 @@ const GoogleSignInButton = () => {
   }, []);
 
   const handleCredentialResponse = (response) => {
-    const id_token = response.credential;
-    
+    const id_token = response.credential;    
     const res = loginWithGoogle(id_token); //  use AuthContext method
     if (res.success) navigate("/contests")
   };

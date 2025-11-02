@@ -12,7 +12,6 @@ const SignUp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("hi")
      
     const success = await signup(name,email, password);
     if (success) navigate("/"); // go to home page after successful login

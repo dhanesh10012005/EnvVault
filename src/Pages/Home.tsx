@@ -5,21 +5,29 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 
-interface Project {
-    id: number;
-    name: string;
-    createdAt: string;
-    env?: { [key: string]: string }
+export interface Secret {
+  _id: string;
+  key: string;
+  value: string;
+  isActive?: boolean;
 }
+
+export interface Project {
+  _id: string;
+  name: string;
+  createdAt: string;
+  secret: Secret[];
+}
+
+
 
 const Home: React.FC = () => {
 
     const { projects, setProjects, createProject } = useContext(AppContext) as {
         projects: Project[];
         setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
-        createProject: (name: string, secrets: { key: string; value: string }[]) => Promise<Project>;
+        createProject: (name: string, secrets: { key: string; value: string }[]) => Promise<any>;
     };
-
     const [showModal, setShowModal] = useState(false)
     const [projName, setProjName] = useState('')
     const [envs, setEnvs] = useState<{ key: string, value: string }[]>([{ key: '', value: '' }])
@@ -44,6 +52,9 @@ const Home: React.FC = () => {
             toast.error(error.message || "Something went wrong")
         }
     }
+
+
+
 
     const updateEnv = (index: number, field: 'key' | 'value', value: string) => {
         const newEnvs = [...envs];
@@ -71,7 +82,7 @@ const Home: React.FC = () => {
                             <h2><span className='font-bold'>Created At:</span>{proj.createdAt.split("T")[0]}</h2>
                             <div className='flex justify-center items-center text-center mt-3'>
                                 <button
-                                    onClick={() => navigate('/viewproj', { state: { id: proj.id } })}
+                                    onClick={() => navigate('/viewproj', { state: { id: proj._id } })}
                                     className='cursor-pointer text-gray-500 bg-white rounded-xl p-1 hover:bg-green-100 hover:text-black w-30'
                                 >
                                     View Project
@@ -141,7 +152,11 @@ const Home: React.FC = () => {
                             </div>
 
                             <div className='flex justify-end mt-6 gap-4'>
-                                <button className='bg-red-500 text-white rounded-2xl w-32 h-10 hover:bg-red-600 cursor-pointer p-2 text-lg' onClick={() => setShowModal(false)}>
+                                <button className='bg-red-500 text-white rounded-2xl w-32 h-10 hover:bg-red-600 cursor-pointer p-2 text-lg' onClick={() => 
+                                    {setShowModal(false)
+                                          setProjName('')
+                                           setEnvs([{ key: '', value: '' }])
+                                    }}>
                                     Cancel
                                 </button>
                                 <button className='bg-green-600 text-white rounded-2xl w-32 h-10 hover:bg-green-500 cursor-pointer p-2 text-lg' onClick={saveProject}>

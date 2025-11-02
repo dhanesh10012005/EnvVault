@@ -2,16 +2,35 @@ import React, { useState, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AppContext } from '../context'
 import { useContext } from 'react'
-interface Project {
-  id: string
-  name: string
-  createdAt: string
-  env: { [key: string]: string }
+import toast from 'react-hot-toast';
+
+interface Secret {
+  _id: string;
+  key: string;
+  value: string;
 }
+
+interface Project {
+  _id: string;
+  name: string;
+  createdAt: string;
+  secret: Secret[];
+}
+
 
 const ViewProject: React.FC = () => {
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
+
+    const { deleteProject,changeProjName,editEnv,deleteEnv,addEnv } = useContext(AppContext) as {
+           deleteProject :(ProjectId:string)=>Promise<any>,
+           changeProjName:(ProjectId:string,name:string)=>Promise<any>,
+           editEnv:(projectId:string,envId:string,editedKey:string,editedValue:string)=>Promise<any>,
+           deleteEnv:(projectId:string,envId:string)=>Promise<any>,
+          addEnv:(projectId:string,key:string,value:string)=>Promise<any>
+      };
+
+      const navigate=useNavigate()
 
   // const locationState = useLocation().state as { id: string };
   // const navigate = useNavigate()
@@ -25,18 +44,15 @@ const ViewProject: React.FC = () => {
 
   const [project, setProject] = useState<Project | null>(() => {
     if (!locationState?.id) return null;
-    return projects.find((p) => p.id === locationState.id) || null;
+    return projects.find((p) => p._id === locationState.id) || null;
   });
-
-  console.log(project)
-
 
   //  const {setProjects}=React.useContext(AppContext) as {setProjects:React.Dispatch<React.SetStateAction<Project[]>>}
   const [projEdit, setProjEdit] = useState<string | null>()
   const [isEdit, setIsEdit] = useState<string | null>(null);
   const [keyInput, setKeyInput] = useState('');
   const [valueInput, setValueInput] = useState('');
-
+  const [isProjEdit,setIsProjEdit]=useState<boolean>(false)
 
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -48,149 +64,150 @@ const ViewProject: React.FC = () => {
     setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   };
 
-  const addEnvVar = () => {
-    if (!newKey) return alert("Key cannot be empty");
-    if (!project) return;
-
-    const updatedEnv = { ...project.env, [newKey]: newValue };
-    const updatedProject = { ...project, env: updatedEnv };
-    setProject(updatedProject);
-
-    setProjects((prevProjects) =>
-      prevProjects.map((p) => (p.id === project.id ? updatedProject : p))
-    );
-
-    // Reset inputs
-    setNewKey('');
-    setNewValue('');
-    setShowNewRow(false);
-  };
-
-  const doneEdit = (editedKey: string) => {
-    if (!project || !isEdit) return;
-
-    // Create a new env object with the updated key/value
-    const newEnv = { ...project.env };
-    if (keyInput !== editedKey) {
-      // If key was renamed
-      newEnv[keyInput] = valueInput;
-      delete newEnv[editedKey];
-    } else {
-      // Only value changed
-      newEnv[editedKey] = valueInput;
+const addEnvVar = async () => {
+  try {
+    const res = await addEnv(project._id, newKey, newValue);
+    if (res) {
+      setProject(res);
+      setNewKey('');
+      setNewValue('');
+      setShowNewRow(false);
+      toast.success('New Env Added Successfully');
     }
+  } catch (error: any) {
+    toast.error(error.response?.data?.message || "Something went wrong");
+  }
+};
 
-    // Update the project object
-    const updatedProject = { ...project, env: newEnv };
-    setProject(updatedProject);
 
-    // Update context projects
-    setProjects((prevProjects) =>
-      prevProjects.map((p) => (p.id === project.id ? updatedProject : p))
-    );
-
-    // Reset editing state
-    setIsEdit(null);
-    setKeyInput("");
-    setValueInput("");
+  const doneEdit = async (envId:string, editedKey: string, editedValue: string) => {
+     try{
+       const res = await editEnv(project._id,envId,editedKey,editedValue)
+       if(res.project)
+       {
+          setProject(res.project)
+          toast.success(res.message)
+          setIsEdit('')
+          setKeyInput('')
+          setValueInput('')
+        }
+     }catch(error)
+     {
+        toast.error(error.response?.data?.message||"something went wrong")
+     }  
   };
 
 
-
-  const startEdit = (key: string, val: string) => {
-    setIsEdit(key);
+  const startEdit = (key: string, val: string,id:string) => {
+    setIsEdit(id);
     setKeyInput(key);
     setValueInput(val);
   }
 
+const deleteKey = async (envId: string) => {
+  if (!project) return;
 
-  const deleteKey = (keyToDelete: string) => {
-    if (!project) return;
+  try {
+    const resMessage = await deleteEnv(project._id, envId);
 
-    // Create new env object without the deleted key
-    const newEnv = { ...project.env };
-    delete newEnv[keyToDelete];
 
-    // Update the project
-    const updatedProject = { ...project, env: newEnv };
-    setProject(updatedProject);
-
-    // Update context projects
-    setProjects((prevProjects) =>
-      prevProjects.map((p) => (p.id === project.id ? updatedProject : p))
+    // Optimistically update local state too
+    setProject((prev) =>
+      prev ? { ...prev, secret: prev.secret.filter((s) => s._id !== envId) } : prev
     );
-  };
+
+    toast.success(resMessage || "Deleted successfully");
+  } catch (error: any) {
+     console.log(error)
+    toast.error(error.response?.data?.message || "Something went wrong");
+  }
+};
 
 
-  const copyAll = () => {
-    if (!project) return;
+ const copyAll = () => {
+  if (!project) return;
 
-    const envString = Object.entries(project.env)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n');
+  // Convert the secrets to "KEY=VALUE" format
+  const envString = project.secret
+    .filter((item) => item.isActive) // include only active ones
+    .map((item) => `${item.key}=${item.value}`)
+    .join('\n');
 
-    // Try modern Clipboard API first
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(envString)
-        .then(() => alert("All env variables copied!"))
-        .catch(() => fallbackCopy(envString));
-    } else {
-      // Fallback for older / mobile browsers
-      fallbackCopy(envString);
-    }
-  };
-
-  // fallback function using a hidden <textarea>
-  const fallbackCopy = (text: string) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    // Move it off-screen
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    textArea.style.top = "-9999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
-    try {
-      const successful = document.execCommand('copy');
-      if (successful) alert("All env variables copied!");
-      else alert("Failed to copy. Please copy manually.");
-    } catch (err) {
-      alert("Failed to copy. Please copy manually.");
-    }
-
-    document.body.removeChild(textArea);
-  };
-
-  const deleteProj = () => {
-    if (!project) return
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete the project "${project.name}"?`
-    )
-    if (!confirmDelete) return
-
-    setProjects((prevProjects) =>
-      prevProjects.filter((p) => p.id !== project.id)
-    )
-    navigate('/') // Redirect to home
+  if (!envString) {
+    toast.error("No active environment variables to copy");
+    return;
   }
 
+  // Try modern Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard
+      .writeText(envString)
+      .then(() => toast.success("All env variables copied!"))
+      .catch(() => fallbackCopy(envString));
+  } else {
+    fallbackCopy(envString);
+  }
+};
 
-  const changeName = () => {
-    if (!project || !projEdit) return;
+const fallbackCopy = (text: string) => {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
 
-    // Update the local project
-    const updatedProject = { ...project, name: projEdit };
-    setProject(updatedProject);
+  try {
+    const successful = document.execCommand("copy");
+    if (successful) toast.success("All env variables copied!");
+    else toast.error("Failed to copy. Please copy manually.");
+  } catch (err) {
+    toast.error("Failed to copy. Please copy manually.");
+  }
 
-    // Update the global projects context
-    setProjects((prevProjects) =>
-      prevProjects.map((p) => (p.id === project.id ? updatedProject : p))
-    );
+  document.body.removeChild(textArea);
+};
 
-    // Exit edit mode
-    setProjEdit(null);
+
+  
+  const removeProj = async (projectId: string) => {
+  try {
+    const message = await deleteProject(projectId); // call your API function
+    if (message) {
+      toast.success(message); // show success toast
+      navigate('/')
+    }
+  } catch (error: any) {
+    console.error("Error removing project:", error);
+    toast.error(error.message || "Failed to remove project");
+  }
+};
+
+  const changeName = async (projectId:string,name:string) => {
+  
+    try{
+      if(!name)
+      {
+        return toast.error("Please Enter Project Name")
+      }
+      const res=await changeProjName(projectId,name)
+      if(res)
+      {
+        setProject(prev=>({
+          ...prev,
+          name:name
+        }))
+        toast.success(res)
+        setIsProjEdit(false)
+        setProjEdit('')
+      }
+    }catch(error)
+    {
+        toast.error(error.response?.data?.message || "Something went wrong")
+    }
+
   };
 
 
@@ -203,39 +220,38 @@ const ViewProject: React.FC = () => {
           <div>
             <div className='flex'>
               {
-                projEdit ? (
+                isProjEdit ? (
                   <input value={projEdit} onChange={(e) => setProjEdit(e.target.value)} className="text-xl sm:text-2xl font-bold mb-2 w-52 h-11 box-border border-2 border-blue-600 px-2"></input>
                 ) : (<h1 className="text-xl sm:text-2xl font-bold mb-2">{project.name}</h1>)
-
               }
-
-              {!projEdit ? (
+              {!isProjEdit ? (
                 <button
-                  onClick={() => setProjEdit(project.name)}
-                  className='cursor-pointer text-sm ml-2 text-blue-500 hover:text-blue-600'
+                  onClick={() => {setIsProjEdit(true)
+                  setProjEdit(project.name)
+                  }}
+                  className='cursor-pointer text-sm ml-2 text-blue-500 hover:text-blue-600 cursor-pointer'
                 >
                   Edit
                 </button>
               ) : (
                 <button
-                  onClick={changeName}
-                  className='cursor-pointer text-sm ml-2 text-green-500 hover:text-green-600'
+                  onClick={()=>changeName(project._id,projEdit)}
+                  className='cursor-pointer text-sm ml-2 text-green-500 hover:text-green-600 cursor-pointer '
                 >
                   Done
                 </button>
               )}
 
             </div>
-            <h2 className="text-gray-600 mb-4">Created At: {project.createdAt}</h2>
+            <h2 className="text-gray-600 mb-4">Created At: {project.createdAt.split("T")[0]}</h2>
           </div>
 
           <div className='flex flex-col justify-end'>
-            <button onClick={() => deleteProj()}
+            <button onClick={() => removeProj(project._id)}
               className="border border-black p-1 rounded-xl w-25 sm:w-36 mb-3 text-xs sm:text-sm bg-red-500 w-16 text-white cursor-pointer hover:bg-red-600"
             >
               Delete Project
             </button>
-
           </div>
         </div>
 
@@ -250,11 +266,11 @@ const ViewProject: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {project?.secret?.map((item, index) => (
+              {project?.secret?.filter(item => item.isActive).map((item, index) => (
                 <tr key={item._id || index}>
                   {/* Key Column */}
                   <td className="border border-slate-300 px-2 py-1">
-                    {isEdit === item.key ? (
+                    {isEdit === item._id ? (
                       <input
                         type="text"
                         value={keyInput}
@@ -268,7 +284,7 @@ const ViewProject: React.FC = () => {
 
                   {/* Value Column */}
                   <td className="border border-slate-300 px-2 py-1">
-                    {isEdit === item.key ? (
+                    {isEdit === item._id ? (
                       <input
                         type="text"
                         value={valueInput}
@@ -282,24 +298,24 @@ const ViewProject: React.FC = () => {
 
                   {/* Action Buttons */}
                   <td className="border border-slate-300 px-2 py-1 flex gap-2 justify-center">
-                    {isEdit === item.key ? (
+                    {isEdit === item._id ? (
                       <button
-                        onClick={() => doneEdit(item.key)}
-                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                        onClick={() => doneEdit(item._id,keyInput,valueInput)}
+                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 cursor-pointer"
                       >
                         Done
                       </button>
                     ) : (
                       <>
                         <button
-                          onClick={() => startEdit(item.key, item.value)}
-                          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                          onClick={() => startEdit(item.key, item.value,item._id)}
+                          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
-                          onClick={() => deleteKey(item.key)}
-                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                          onClick={() => deleteKey(item._id)}
+                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 cursor-pointer"
                         >
                           Delete
                         </button>
@@ -333,7 +349,7 @@ const ViewProject: React.FC = () => {
                   <td className="border border-slate-300 px-2 py-1 flex gap-2 justify-center items-center">
                     <button
                       onClick={addEnvVar}
-                      className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                      className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 cursor-pointer"
                     >
                       Add
                     </button>
@@ -343,7 +359,7 @@ const ViewProject: React.FC = () => {
                         setNewKey("");
                         setNewValue("");
                       }}
-                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                      className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 cursor-pointer"
                     >
                       Cancel
                     </button>

@@ -17,7 +17,6 @@ const App = () => {
 
       <div className={`${token ? "p-16" : ""}`}>
         <Routes>
-          {/* If no token, redirect everything to login */}
           {!token ? (
             <>
               <Route path="*" element={<Navigate to="/login" />} />

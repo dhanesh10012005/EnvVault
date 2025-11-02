@@ -19,32 +19,35 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+   
   useEffect(() => {
-    const storedToken = localStorage.getItem("token"); 
-    if (storedToken) {
-      setToken(storedToken);
+  const savedToken = localStorage.getItem("token");
+  setToken(savedToken);
 
-      API.get("/auth/me")
-        .then((res) => {
-          setCurrentUser(res.data.data.user);
-        })
-        .catch(() => {
-          localStorage.removeItem("token");
-          setToken(null);
-          setCurrentUser(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
+  (async () => {
+    try {
+      const res = await API.get("/auth/me");
+      if (res.data) {
+        setCurrentUser(res.data.user || res.data); // depends on your backend response
+      } else {
+        console.log("User not found");
+      }
+    } catch (err) {
+      console.error("Error fetching current user:", err.response?.data || err.message);
+      setCurrentUser(null);
+      localStorage.removeItem("token"); // optional: clear invalid token
+    } finally {
       setLoading(false);
     }
-  }, []);
+  })();
+}, []);
+
+
 
   const login = async (email, password) => {
     try {
       const res = await API.post("/auth/login", { email, password });
-      const { user, token } = res.data.data;
-
-      setCurrentUser(user);
+      const {token } = res.data;
       setToken(token);
       localStorage.setItem("token", token);
 
@@ -56,7 +59,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async (name, email, password) => {
-  console.log("jfoo")
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     toast.error("Please enter a valid email address");
@@ -64,8 +66,7 @@ export const AuthProvider = ({ children }) => {
   }
     try {
       const res = await API.post("/auth/signup", { name, email, password });
-      const { user, token } = res.data.data;
-      setCurrentUser(user);
+      const {token } = res.data;
       setToken(token);
       localStorage.setItem("token", token);
       toast.success("Signup successful");
@@ -79,15 +80,11 @@ export const AuthProvider = ({ children }) => {
 const loginWithGoogle = async (idToken) => {
   try {
     const res = await API.post("/auth/google", { idToken });
-
-   
-    const { user, token } = res.data.data;
-
-    setCurrentUser(user);
+    
+    const {token} = res.data;
     setToken(token);
     localStorage.setItem("token", token);
     toast.success("Google login successful");
-
   } catch (error) {
     console.error("Google login error:", error);
     toast.error(error.response?.data?.message || "Google login failed");
@@ -101,7 +98,6 @@ const loginWithGoogle = async (idToken) => {
     localStorage.removeItem("token");
     toast.success("Logged out");
   };
-
   const value = {
     currentUser,
     token,
@@ -111,6 +107,5 @@ const loginWithGoogle = async (idToken) => {
     logout,
     loading,
   };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
